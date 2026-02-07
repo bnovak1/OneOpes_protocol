@@ -1,0 +1,161 @@
+# Psi4 Two-Step Geometry Optimization + RESP Fitting
+# Step 1: B3LYP/6-31G(d) optimization
+# Step 2: HF/6-31G(d) optimization using B3LYP optimized geometry
+# Step 3: RESP Charge Fitting
+
+import psi4
+import os
+import resp
+
+memory {{ memory | default('8 GB') }}
+set_num_threads({{ nthreads | default('8') }})
+
+os.makedirs('{{ output_path }}', exist_ok=True)
+psi4.core.IOManager.shared_object().set_default_path('{{ output_path }}')
+
+molecule {
+{{ charge | default('0') }} {{ multiplicity | default('1') }}
+{{ coordinates }}
+}
+
+set {
+    basis 6-31G(d,p)
+}
+
+# Step 1: B3LYP/6-31G(d,p) Geometry Optimization
+print('\n================================================')
+print('  Step 1: B3LYP/6-31G(d,p) Geometry Optimization  ')
+print('================================================\n')
+
+energy_b3lyp, wfn_b3lyp = optimize('b3lyp', return_wfn=True)
+
+# Save B3LYP optimized geometry
+b3lyp_geom = wfn_b3lyp.molecule()
+b3lyp_geom.save_xyz_file('{{ output_path }}/b3lyp_opt.xyz', True)
+
+# Save B3LYP wavefunction for potential reuse
+wfn_b3lyp.to_file('{{ output_path }}/b3lyp_wfn')
+
+print('\n================================================')
+print('  B3LYP/6-31G(d) Optimization Complete          ')
+print(f'  Final Energy: {energy_b3lyp:.10f} Eh')
+print('================================================\n')
+
+# Step 2: HF/6-31G(d,p) Geometry Optimization
+print('\n================================================')
+print('   Step 2: HF/6-31G(d,p) Geometry Optimization    ')
+print('   (Starting from B3LYP optimized geometry)     ')
+print('================================================\n')
+
+# Update molecule to B3LYP optimized geometry
+activate(b3lyp_geom)
+
+energy_hf, wfn_hf = optimize('hf', return_wfn=True)
+
+# Save HF optimized geometry
+hf_geom = wfn_hf.molecule()
+hf_geom.save_xyz_file('{{ output_path }}/hf_opt.xyz', True)
+
+# Save HF wavefunction for potential reuse
+wfn_hf.to_file('{{ output_path }}/hf_wfn')
+
+print('\n================================================')
+print('  HF/6-31G(d,p) Optimization Complete              ')
+print(f'  Final Energy: {energy_hf:.10f} Eh')
+print('================================================\n')
+
+# Step 3: ESP Grid Generation + Two-Stage RESP Fitting (Standard Protocol)
+print('\n================================================')
+print('  Step 3: ESP Grid Generation + Two-Stage RESP Fitting         ')
+print('================================================\n')
+
+# Set molecule name for consistent grid filenames
+mol = wfn_hf.molecule()
+
+# Base RESP options
+base_options = {
+    'N_VDW_LAYERS': {{ n_vdw_layers | default('4') }},
+    'VDW_SCALE_FACTORS': [{{ vdw_scales | default('1.4, 1.6, 1.8, 2.0') }}],
+    'VDW_POINT_DENSITY': {{ vdw_density | default('1.0') }},
+    'RESP_B': 0.1,  # Quadratic restraint term (standard)
+}
+
+print('  Stage 1: Weak restraint (A=0.0005), fit all atoms')
+# ===== STAGE 1 =====
+options1 = base_options.copy()
+options1['RESP_A'] = {{ resp_a1 | default('0.0005') }}
+
+# Equivalence groups for polar atoms which will be fixed in stage 2. 
+# Equivalent atoms have the same charge.
+# List of lists: [[atom1,atom2,...], ...] (1-based indices)
+equiv_groups1 = {{ equiv_groups1 | default('[]') }}
+options1['constraint_group'] = equiv_groups1
+
+charges1 = resp.resp([mol], options1)
+
+print('  Stage 1 RESP charges:')
+for i, q in enumerate(charges1[1], 1):
+    print(f'  Atom {i}: {q:.6f}')
+
+# ===== STAGE 2 =====
+print('\n  Stage 2: Strong restraint (A=0.001), constrain polar atom charges')
+print('           Refit heavy atoms + polar H atoms (N-H, O-H)')
+options2 = base_options.copy()
+options2['RESP_A'] = {{ resp_a2 | default('0.001') }}
+
+# Constrain polar atoms to Stage 1 values (0-based indices)
+# List of 0-based indices
+constrained_atoms = {{ constrained_atoms | default('[]') }}
+constraint_charge = [[float(charges1[1][i]), [int(i)+1]] for i in constrained_atoms]
+options2['constraint_charge'] = constraint_charge
+
+# Equivalence groups (equivalent atoms have the same charge)
+# List of lists: [[atom1,atom2,...], ...] (1-based indices)
+equiv_groups2 = {{ equiv_groups2 | default('[]') }}
+options2['constraint_group'] = equiv_groups2
+
+# Grid files
+options2['grid'] = ['1_%s_grid.dat' %mol.name()]
+options2['esp'] = ['1_%s_grid_esp.dat' %mol.name()]
+
+# ================================================
+
+# ===== STAGE 2 FIT =====
+charges2 = resp.resp([mol], options2)
+final_charges = charges2[1]
+
+print('  Final Stage 2 RESP charges:')
+for i, q in enumerate(final_charges, 1):
+    print(f'  Atom {i}: {q:.6f}')
+
+# Save Stage 1 charges (for reference)
+with open('{{ output_path }}/resp_stage1.txt', 'w') as f:
+    f.write('Stage 1 RESP Charges\n')
+    f.write('Atom    Charge\n')
+    for i, charge in enumerate(charges1[1], 1):
+        f.write(f'{i:4d}  {charge:10.6f}\n')
+
+# Save FINAL Stage 2 charges (readable)
+with open('{{ output_path }}/resp_charges.txt', 'w') as f:
+    f.write('Final Stage 2 RESP Charges\n')
+    f.write('Atom    Charge\n')
+    f.write('================\n')
+    for i, charge in enumerate(final_charges, 1):
+        f.write(f'{i:4d}  {charge:10.6f}\n')
+    f.write('================\n')
+    f.write(f'Total Charge: {sum(final_charges):10.6f}\n')
+
+# AmberTools-compatible resp.crg (ONLY final Stage 2 charges)
+with open('{{ output_path }}/resp.crg', 'w') as f:
+    for charge in final_charges:
+        f.write(f'{charge:.6f}\n')
+
+print('\n================================================')
+print('  Two-Stage RESP Fitting Complete               ')
+print('================================================')
+print(f'  Files:')
+print(f'    Geometry: {{ output_path }}/hf_opt.xyz')
+print(f'    Stage 1: {{ output_path }}/resp_stage1.txt')
+print(f'    Final RESP: {{ output_path }}/resp_charges.txt')
+print(f'    Amber resp.crg: {{ output_path }}/resp.crg')
+print('================================================\n')

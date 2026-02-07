@@ -1,0 +1,88 @@
+# Psi4 RESP Fitting (Two-Stage)
+# Step 3: ESP Grid Generation + Two-Stage RESP Fitting (Standard Protocol)
+
+import psi4
+import os
+import resp
+
+memory {{ memory | default('8 GB') }}
+set_num_threads({{ nthreads | default('8') }})
+
+os.makedirs('{{ output_path }}', exist_ok=True)
+
+# Load HF wavefunction from previous optimization step and extract molecule
+wfn_hf = psi4.core.Wavefunction.from_file('{{ output_path }}/hf_wfn_{{ solvent_type }}')
+mol = wfn_hf.molecule()
+
+# Base RESP options
+base_options = {
+    'N_VDW_LAYERS': {{ n_vdw_layers | default('4') }},
+    'VDW_SCALE_FACTORS': [{{ vdw_scales | default('1.4, 1.6, 1.8, 2.0') }}],
+    'VDW_POINT_DENSITY': {{ vdw_density | default('1.0') }},
+    'RESP_B': 0.1,
+}
+
+# ===== STAGE 1 =====
+options1 = base_options.copy()
+options1['RESP_A'] = {{ resp_a1 | default('0.0005') }}
+
+# Equivalence groups for polar atoms which will be fixed in stage 2.
+# List of lists: [[atom1,atom2,...], ...] (1-based indices)
+equiv_groups1 = {{ equiv_groups1 | default('[]') }}
+options1['constraint_group'] = equiv_groups1
+
+charges1 = resp.resp([mol], options1)
+
+# ===== STAGE 2 =====
+options2 = base_options.copy()
+options2['RESP_A'] = {{ resp_a2 | default('0.001') }}
+
+# Constrain polar atoms to Stage 1 values (0-based indices)
+constrained_atoms = {{ constrained_atoms | default('[]') }}
+constraint_charge = [[float(charges1[1][i]), [int(i)+1]] for i in constrained_atoms]
+options2['constraint_charge'] = constraint_charge
+
+# Equivalence groups (equivalent atoms have the same charge)
+equiv_groups2 = {{ equiv_groups2 | default('[]') }}
+options2['constraint_group'] = equiv_groups2
+
+# Grid files
+options2['grid'] = ['1_%s_grid.dat' % mol.name()]
+options2['esp'] = ['1_%s_grid_esp.dat' % mol.name()]
+
+# ===== STAGE 2 FIT =====
+charges2 = resp.resp([mol], options2)
+final_charges = charges2[1]
+
+# ===== SAVE CHARGES =====
+# Save Stage 1 charges (for reference)
+with open('{{ output_path }}/resp_stage1_{{ solvent_type }}.txt', 'w') as f:
+    f.write('Stage 1 RESP Charges\n')
+    f.write('Atom    Charge\n')
+    for i, charge in enumerate(charges1[1], 1):
+        f.write(f'{i:4d}  {charge:10.6f}\n')
+
+# Save FINAL Stage 2 charges (readable)
+with open('{{ output_path }}/resp_charges_{{ solvent_type }}.txt', 'w') as f:
+    f.write('Final Stage 2 RESP Charges\n')
+    f.write('Atom    Charge\n')
+    f.write('================\n')
+    for i, charge in enumerate(final_charges, 1):
+        f.write(f'{i:4d}  {charge:10.6f}\n')
+    f.write('================\n')
+    f.write(f'Total Charge: {sum(final_charges):10.6f}\n')
+
+# AmberTools-compatible resp.crg (ONLY final Stage 2 charges)
+with open('{{ output_path }}/resp_{{ solvent_type }}.crg', 'w') as f:
+    for charge in final_charges:
+        f.write(f'{charge:.6f}\n')
+
+print('\n================================================')
+print('  Two-Stage RESP Fitting Complete               ')
+print('================================================')
+print('  Files:')
+print(f'    Geometry: {{ output_path }}/hf_opt_{{ solvent_type }}.xyz')
+print(f'    Stage 1: {{ output_path }}/resp_stage1_{{ solvent_type }}.txt')
+print(f'    Final RESP: {{ output_path }}/resp_charges_{{ solvent_type }}.txt')
+print(f'    Amber resp.crg: {{ output_path }}/resp_{{ solvent_type }}.crg')
+print('================================================\n')

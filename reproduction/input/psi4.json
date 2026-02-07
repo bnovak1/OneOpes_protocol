@@ -1,0 +1,121 @@
+{
+    "S6-G3": {
+        "CHARGE": 1,
+        "CONSTRAINED_ATOMS": [],
+        "EQUIV_GROUPS": {
+            "STAGE1": [],
+            "STAGE2": []
+        }
+    },
+    "S6-G5": {
+        "CHARGE": 1,
+        "CONSTRAINED_ATOMS": [],
+        "EQUIV_GROUPS": {
+            "STAGE1": [],
+            "STAGE2": []
+        }
+    },
+    "S6-G7": {
+        "CHARGE": 1,
+        "CONSTRAINED_ATOMS": [
+        ],
+        "EQUIV_GROUPS": {
+            "STAGE1": [
+            ],
+            "STAGE2": [
+            ]
+        }
+    },
+    "S6-G8": {
+        "CHARGE": 1,
+        "CONSTRAINED_ATOMS": [],
+        "EQUIV_GROUPS": {
+            "STAGE1": [],
+            "STAGE2": []
+        }
+    },
+    "S6-G9": {
+        "CHARGE": 1,
+        "CONSTRAINED_ATOMS": [
+            9,
+            23,
+            24,
+            25
+        ],
+        "EQUIV_GROUPS": {
+            "STAGE1": [
+                [
+                    24,
+                    25,
+                    26
+                ]
+            ],
+            "STAGE2": [
+                [
+                    2,
+                    3
+                ],
+                [
+                    4,
+                    5
+                ],
+                [
+                    6,
+                    7
+                ],
+                [
+                    11,
+                    12
+                ],
+                [
+                    13,
+                    14,
+                    15,
+                    16
+                ],
+                [
+                    17,
+                    18,
+                    19,
+                    20
+                ],
+                [
+                    21,
+                    22
+                ]
+            ]
+        }
+    },
+    "S8-G1": {
+        "CHARGE": 1,
+        "CONSTRAINED_ATOMS": [],
+        "EQUIV_GROUPS": {
+            "STAGE1": [],
+            "STAGE2": []
+        }
+    },
+    "S8-G2": {
+        "CHARGE": 1,
+        "CONSTRAINED_ATOMS": [],
+        "EQUIV_GROUPS": {
+            "STAGE1": [],
+            "STAGE2": []
+        }
+    },
+    "S8-G4": {
+        "CHARGE": 1,
+        "CONSTRAINED_ATOMS": [],
+        "EQUIV_GROUPS": {
+            "STAGE1": [],
+            "STAGE2": []
+        }
+    },
+    "S8-G6": {
+        "CHARGE": 1,
+        "CONSTRAINED_ATOMS": [],
+        "EQUIV_GROUPS": {
+            "STAGE1": [],
+            "STAGE2": []
+        }
+    }
+}

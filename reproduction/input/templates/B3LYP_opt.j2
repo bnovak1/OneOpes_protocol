@@ -1,0 +1,44 @@
+# Psi4 B3LYP Geometry Optimization
+# Step 1: B3LYP/6-31G(d) optimization
+
+import psi4
+import os
+import resp
+
+memory {{ memory | default('8 GB') }}
+set_num_threads({{ nthreads | default('8') }})
+
+os.makedirs('{{ output_path }}', exist_ok=True)
+
+molecule {
+{{ charge | default('0') }} {{ multiplicity | default('1') }}
+{{ coordinates }}
+}
+
+set {
+    basis 6-31G(d,p)
+    freeze_all_dihedrals true
+    geom_maxiter 1000
+    opt_coordinates cartesian
+    step_type nr
+    dynamic_level 1    
+}
+
+# Step 1: B3LYP/6-31G(d,p) Geometry Optimization
+print('\n================================================')
+print('  B3LYP/6-31G(d,p) Geometry Optimization  ')
+print('================================================\n')
+
+energy_b3lyp, wfn_b3lyp = optimize('b3lyp', return_wfn=True)
+
+# Save B3LYP optimized geometry
+b3lyp_geom = wfn_b3lyp.molecule()
+b3lyp_geom.save_xyz_file('{{ output_path }}/b3lyp_opt.xyz', True)
+
+# Save B3LYP wavefunction for potential reuse
+wfn_b3lyp.to_file('{{ output_path }}/b3lyp_wfn')
+
+print('\n================================================')
+print('  B3LYP/6-31G(d,p) Optimization Complete          ')
+print(f'  Final Energy: {energy_b3lyp:.10f} Eh')
+print('================================================\n')
