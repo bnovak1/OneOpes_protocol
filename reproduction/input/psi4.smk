@@ -19,7 +19,7 @@ rule graph:
 rule cif_to_pdb:
     input:
         cif="structure_files/{structure_type}/{structure_name}.cif",
-        script="../scripts/cif_to_pdb.py",
+        script="scripts/cif_to_pdb.py",
     output:
         pdb="structure_files/{structure_type}/{structure_name}.pdb",
     shell:
@@ -65,7 +65,7 @@ rule fill_psi4_input_template_b3lyp:
     input:
         xyz=rules.pdb_to_xyz.output.xyz,
         template="templates/B3LYP_opt.j2",
-        script="../scripts/fill_psi4_input_template.py",
+        script="scripts/fill_psi4_input_template.py",
         json="psi4.json",
     output:
         inp="psi4/{structure_type}/{structure_name}/b3lyp_opt.psi4",
@@ -118,7 +118,7 @@ rule run_psi4s_b3lyp:
 rule fill_psi4_input_template_hf_vacuum:
     input:
         template="templates/HF_opt_vacuum.j2",
-        script="../scripts/fill_psi4_input_template.py",
+        script="scripts/fill_psi4_input_template.py",
         json="psi4.json",
         b3lyp_xyz=rules.run_psi4_b3lyp.output.b3lyp_xyz,
     output:
@@ -172,7 +172,7 @@ rule run_psi4s_hf_vacuum:
 rule fill_psi4_input_template_hf_implicit_water:
     input:
         template="templates/HF_opt_implicit_water.j2",
-        script="../scripts/fill_psi4_input_template.py",
+        script="scripts/fill_psi4_input_template.py",
         json="psi4.json",
         xyz=rules.run_psi4_hf_vacuum.output.hf_xyz,
         wfn=rules.run_psi4_hf_vacuum.output.hf_wfn,
@@ -227,7 +227,7 @@ rule run_psi4s_hf_implicit_water:
 # This is optional and for debugging purposes only.
 rule visualize_cavity:
     input:
-        script="../scripts/visualize_cavity.py",
+        script="scripts/visualize_cavity.py",
         cavity="../output/psi4/{structure_type}/{structure_name}/cavity.npz",
     output:
         fig="../output/psi4/{structure_type}/{structure_name}/cavity_{structure_name}.png",
@@ -241,7 +241,7 @@ rule visualize_cavity:
 rule fill_psi4_input_template_resp:
     input:
         template="templates/RESP.j2",
-        script="../scripts/fill_psi4_input_template.py",
+        script="scripts/fill_psi4_input_template.py",
         json="psi4.json",
         wfn="../output/psi4/{structure_type}/{structure_name}/hf_wfn_{solvent_type}.npy",
     output:
