@@ -1,8 +1,17 @@
+configfile: "psi4.json"
+
+
 # Structure names
 # STRUCTURE_NAMES = {"host": ["CB8"], "guests": ["S6-G9"]}
-STRUCTURE_NAMES = {
-    "guests": ["S6-G3", "S6-G5", "S6-G7", "S6-G8", "S6-G9", "S8-G1", "S8-G2", "S8-G4", "S8-G6"]
-}
+# STRUCTURE_NAMES = {
+#     "guests": ["S6-G3", "S6-G5", "S6-G7", "S6-G8", "S6-G9", "S8-G1", "S8-G2", "S8-G4", "S8-G6"]
+# }
+STRUCTURE_NAMES = {"guests": ["S6-G9"]}
+
+# Number of cores on this machine.
+import os
+
+THREADS_MAX = os.cpu_count()
 
 
 # Generate a rule graph
@@ -95,7 +104,7 @@ rule run_psi4_b3lyp:
         b3lyp_wfn="../output/psi4/{structure_type}/{structure_name}/b3lyp_wfn.npy",
     params:
         output_dir="../output/psi4/{structure_type}/{structure_name}",
-    threads: 8
+    threads: THREADS_MAX
     shell:
         """
         conda run -n psi4_1.10 psi4 {input.inp}
@@ -114,6 +123,37 @@ rule run_psi4s_b3lyp:
         ],
 
 
+# Align the B3LYP optimized structure to the Gaussian structure using openbabel. Include only non-hydrogen atoms in the alignment.
+rule align_b3lyp_to_gaussian:
+    input:
+        b3lyp_xyz=rules.run_psi4_b3lyp.output.b3lyp_xyz,
+        gaussian_xyz="../../gaussian_results/{structure_type}/{structure_name}_gaussian/final_optimized.xyz",
+    output:
+        aligned_1="../analysis/{structure_type}/{structure_name}/psi4_gaussian_alignment_1.xyz",
+        aligned_2="../analysis/{structure_type}/{structure_name}/psi4_gaussian_alignment_2.xyz",
+    shell:
+        """
+        # First align and get both frames
+        conda run -n OneOpes obabel -ixyz {input.b3lyp_xyz} -ixyz {input.gaussian_xyz} -oxyz -O tmp.xyz --align -at "!H,!H"
+        
+        # Extract the aligned frames
+        conda run -n OneOpes obabel -ixyz tmp.xyz -f 1 -l 1 -oxyz -O {output.aligned_1}
+        conda run -n OneOpes obabel -ixyz tmp.xyz -f 2 -l 2 -oxyz -O {output.aligned_2}
+        rm tmp.xyz
+        """
+
+
+rule align_b3lyps_to_gaussians:
+    input:
+        [
+            rules.align_b3lyp_to_gaussian.output.aligned_1.format(
+                structure_type=structure_type, structure_name=structure_name
+            )
+            for structure_type in STRUCTURE_NAMES
+            for structure_name in STRUCTURE_NAMES["guests"]
+        ],
+
+
 # Fill in the psi4 input file jinja2 template for HF optimization in vacuum
 rule fill_psi4_input_template_hf_vacuum:
     input:
@@ -125,7 +165,7 @@ rule fill_psi4_input_template_hf_vacuum:
         inp="psi4/{structure_type}/{structure_name}/hf_opt_vacuum.psi4",
     shell:
         """
-        conda run -n psi4_1.9 python {input.script} --template {input.template} --json {input.json} --structure_name {wildcards.structure_name} --structure_type {wildcards.structure_type} --xyz_file {input.b3lyp_xyz} --output {output.inp}
+        conda run -n psi4_1.7 python {input.script} --template {input.template} --json {input.json} --structure_name {wildcards.structure_name} --structure_type {wildcards.structure_type} --xyz_file {input.b3lyp_xyz} --output {output.inp}
         """
 
 
@@ -149,10 +189,10 @@ rule run_psi4_hf_vacuum:
         hf_wfn="../output/psi4/{structure_type}/{structure_name}/hf_wfn_vacuum.npy",
     params:
         output_dir="../output/psi4/{structure_type}/{structure_name}",
-    threads: 8
+    threads: THREADS_MAX
     shell:
         """
-        conda run -n psi4_1.9 psi4 {input.inp}
+        conda run -n psi4_1.7 psi4 {input.inp}
         mv timer.dat {params.output_dir}/timer_hf_vacuum.dat
         """
 
@@ -180,7 +220,7 @@ rule fill_psi4_input_template_hf_implicit_water:
         inp="psi4/{structure_type}/{structure_name}/hf_opt_implicit_water.psi4",
     shell:
         """
-        conda run -n psi4_1.9 python {input.script} --template {input.template} --json {input.json} --structure_name {wildcards.structure_name} --structure_type {wildcards.structure_type} --xyz_file {input.xyz} --output {output.inp}
+        conda run -n psi4_1.7 python {input.script} --template {input.template} --json {input.json} --structure_name {wildcards.structure_name} --structure_type {wildcards.structure_type} --xyz_file {input.xyz} --output {output.inp}
         """
 
 
@@ -204,10 +244,10 @@ rule run_psi4_hf_implicit_water:
         hf_wfn="../output/psi4/{structure_type}/{structure_name}/hf_wfn_implicit_water.npy",
     params:
         output_dir="../output/psi4/{structure_type}/{structure_name}",
-    threads: 8
+    threads: THREADS_MAX
     shell:
         """
-        conda run -n psi4_1.9 psi4 {input.inp}
+        conda run -n psi4_1.7 psi4 {input.inp}
         mv timer.dat {params.output_dir}/timer_hf_implicit_water.dat
         """
 
@@ -248,7 +288,7 @@ rule fill_psi4_input_template_resp:
         inp="psi4/{structure_type}/{structure_name}/resp_{solvent_type}.psi4",
     shell:
         """
-        conda run -n psi4_1.9 python {input.script} --template {input.template} --json {input.json} --structure_name {wildcards.structure_name} --structure_type {wildcards.structure_type} --solvent {wildcards.solvent_type} --output {output.inp}
+        conda run -n psi4_1.7 python {input.script} --template {input.template} --json {input.json} --structure_name {wildcards.structure_name} --structure_type {wildcards.structure_type} --solvent {wildcards.solvent_type} --output {output.inp}
         """
 
 
@@ -274,16 +314,16 @@ rule run_psi4_resp:
         charges1="../output/psi4/{structure_type}/{structure_name}/resp_stage1_{solvent_type}.txt",
         charges2="../output/psi4/{structure_type}/{structure_name}/resp_charges_{solvent_type}.txt",
         charges_antechamber="../output/psi4/{structure_type}/{structure_name}/resp_{solvent_type}.crg",
-        grid="../output/psi4/{structure_type}/{structure_name}/1_default_grid_{solvent_type}.dat",
-        grid_esp="../output/psi4/{structure_type}/{structure_name}/1_default_grid_esp_{solvent_type}.dat",
+        grid="../output/psi4/{structure_type}/{structure_name}/1_grid_{solvent_type}.dat",
+        grid_esp="../output/psi4/{structure_type}/{structure_name}/1_grid_esp_{solvent_type}.dat",
     params:
         output_dir="../output/psi4/{structure_type}/{structure_name}",
-    threads: 8
+    threads: THREADS_MAX
     shell:
         """
-        conda run -n psi4_1.9 psi4 {input.inp}
-        mv 1_default_grid.dat {params.output_dir}/1_default_grid_{wildcards.solvent_type}.dat
-        mv 1_default_grid_esp.dat {params.output_dir}/1_default_grid_esp_{wildcards.solvent_type}.dat
+        conda run -n psi4_1.7 psi4 {input.inp}
+        mv *grid.dat {output.grid}
+        mv *grid_esp.dat {output.grid_esp}
         mv timer.dat {params.output_dir}/timer_resp_{wildcards.solvent_type}.dat
         mv results.out {params.output_dir}/results_resp_{wildcards.solvent_type}.out
         """
