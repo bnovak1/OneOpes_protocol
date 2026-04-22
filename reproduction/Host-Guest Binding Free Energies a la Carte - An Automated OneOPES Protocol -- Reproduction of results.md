@@ -1,7 +1,7 @@
 ---
-title: Host–Guest Binding Free Energies à la Carte - An Automated OneOPES Protocol - Reproduction of results
+title: Host-Guest Binding Free Energies a la Carte - An Automated OneOPES Protocol -- Reproduction of results
 date created: 2025-11-09 09:41:35
-date modified: 2026-04-21 19:33:18
+date modified: 2026-04-21 20:36:36
 source: https://www.scienceopen.com/document?vid=2b04bb41-a0f2-4600-bf65-80ea79bfe099
 tags:
   - host-guest
@@ -1260,6 +1260,13 @@ The following NEW packages will be INSTALLED:
 ### Results
 
 #### B3LYP Optimization
+
+##### Comparison to structure from Gaussian after B3LYP Optimization
+
+Visually, there is not much difference in the positions of the non-hydrogen atoms in the structures. | [[2026-04-21]]
+![[Host-Guest Binding Free Energies a la Carte - An Automated OneOPES Protocol -- Reproduction of results-20260421194824301.png|400]]
+
+The non-hydrogen atom RMSD is 0.0125 Å ([[psi4_gaussian_alignment_rmsd.txt]]). | [[2026-04-21]]
 
 #### Vacuum
 
