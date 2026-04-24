@@ -16,24 +16,29 @@ parser.add_argument("--structure_name", type=str, help="Structure name")
 parser.add_argument("--structure_type", type=str, help="Structure type")
 parser.add_argument("--xyz_file", type=str, default=None, help="XYZ file path")
 parser.add_argument("--output", type=str, help="Filled template file path")
+parser.add_argument(
+    "--solvent", type=str, choices=["vacuum", "implicit_water"], help="Vacuum or implicit solvent?"
+)
 args = parser.parse_args()
+
+print(args.solvent)
 
 # Create the output directory if it doesn't exist (Snakemake usually does this, but being safe)
 os.makedirs(os.path.dirname(args.output), exist_ok=True)
 
 # Get coordinates and element list and UA0 radius list for implicit solvent from XYZ file
 if args.xyz_file is not None:
-    
+
     with open(args.xyz_file, "r", encoding="utf-8") as f:
         lines = f.readlines()
-    
+
         # Skip the first two lines (atom count and comment)
         coordinates = "".join(lines[2:]).rstrip()
-        
+
         # Element list from first column in the XYZ file
         element_list = [line.split()[0] for line in lines[2:]]
 
-        # UA0 radius list and element index list for implicit solvent model        
+        # UA0 radius list and element index list for implicit solvent model
         radius_list = []
         element_index_list = []
         for index, element in enumerate(element_list, start=1):
@@ -43,17 +48,17 @@ if args.xyz_file is not None:
             elif element == "C":
                 element_index_list.append(str(index))
                 radius_list.append("1.72")
-        
+
         # Convert lists to string format for Jinja2
         radius_list = "[" + ", ".join(radius_list) + "]"
         element_index_list = "[" + ", ".join(element_index_list) + "]"
-        
+
 else:
-    
+
     coordinates = None
     radius_list = None
     element_index_list = None
-    
+
 # Read JSON file
 with open(args.json, "r", encoding="utf-8") as f:
     json_data = json.load(f)[args.structure_name]
@@ -76,6 +81,7 @@ rendered_content = template.render(
     equiv_groups2=json_data["EQUIV_GROUPS"]["STAGE2"],
     element_list=element_index_list,
     radius_list=radius_list,
+    solvent_type=args.solvent,
 )
 
 # Write to output file
