@@ -175,15 +175,15 @@ rule compute_rmsds_b3lyp_gaussians:
             for structure_name in STRUCTURE_NAMES["guests"]
         ],
 
-# Fill in the psi4 input file jinja2 template for HF optimization in vacuum
+# Fill in the psi4 input file jinja2 template for HF single point energy calculation in vacuum, starting from the B3LYP optimized geometry
 rule fill_psi4_input_template_hf_vacuum:
     input:
-        template="templates/HF_opt_vacuum.j2",
+        template="templates/HF_single_point_vacuum.j2",
         script="scripts/fill_psi4_input_template.py",
         json="psi4.json",
         b3lyp_xyz=rules.run_psi4_b3lyp.output.b3lyp_xyz,
     output:
-        inp="psi4/{structure_type}/{structure_name}/hf_opt_vacuum.psi4",
+        inp="psi4/{structure_type}/{structure_name}/hf_single_point_vacuum.psi4",
     shell:
         """
         conda run -n psi4_1.7 python {input.script} --template {input.template} --json {input.json} --structure_name {wildcards.structure_name} --structure_type {wildcards.structure_type} --xyz_file {input.b3lyp_xyz} --output {output.inp}
@@ -206,7 +206,6 @@ rule run_psi4_hf_vacuum:
     input:
         inp=rules.fill_psi4_input_template_hf_vacuum.output.inp,
     output:
-        hf_xyz="../output/psi4/{structure_type}/{structure_name}/hf_opt_vacuum.xyz",
         hf_wfn="../output/psi4/{structure_type}/{structure_name}/hf_wfn_vacuum.npy",
     params:
         output_dir="../output/psi4/{structure_type}/{structure_name}",
@@ -232,16 +231,16 @@ rule run_psi4s_hf_vacuum:
 # Fill in the psi4 input file jinja2 template for HF optimization in implicit water
 rule fill_psi4_input_template_hf_implicit_water:
     input:
-        template="templates/HF_opt_implicit_water.j2",
+        template="templates/HF_single_point_implicit_water.j2",
         script="scripts/fill_psi4_input_template.py",
         json="psi4.json",
-        xyz=rules.run_psi4_hf_vacuum.output.hf_xyz,
+        b3lyp_xyz=rules.run_psi4_b3lyp.output.b3lyp_xyz,
         wfn=rules.run_psi4_hf_vacuum.output.hf_wfn,
     output:
-        inp="psi4/{structure_type}/{structure_name}/hf_opt_implicit_water.psi4",
+        inp="psi4/{structure_type}/{structure_name}/hf_single_point_implicit_water.psi4",
     shell:
         """
-        conda run -n psi4_1.7 python {input.script} --template {input.template} --json {input.json} --structure_name {wildcards.structure_name} --structure_type {wildcards.structure_type} --xyz_file {input.xyz} --output {output.inp}
+        conda run -n psi4_1.7 python {input.script} --template {input.template} --json {input.json} --structure_name {wildcards.structure_name} --structure_type {wildcards.structure_type} --xyz_file {input.b3lyp_xyz} --output {output.inp}
         """
 
 
@@ -261,7 +260,6 @@ rule run_psi4_hf_implicit_water:
     input:
         inp=rules.fill_psi4_input_template_hf_implicit_water.output.inp,
     output:
-        hf_xyz="../output/psi4/{structure_type}/{structure_name}/hf_opt_implicit_water.xyz",
         hf_wfn="../output/psi4/{structure_type}/{structure_name}/hf_wfn_implicit_water.npy",
     params:
         output_dir="../output/psi4/{structure_type}/{structure_name}",

@@ -1,28 +1,26 @@
-# Psi4 HF Geometry Optimization
-# Step 2: HF/6-31G(d) optimization using B3LYP optimized geometry
+# Psi4 HF Single Point Energy Calculation in Implicit Water
+# Step 2: HF/6-31G(d) single point energy using B3LYP optimized geometry
 
 import psi4
 import os
 import resp
 
-memory {{ memory | default('11 GB') }}
+memory {{ memory | default('13 GB') }}
 set_num_threads({{ nthreads | default('8') }})
 
 os.makedirs('{{ output_path }}', exist_ok=True)
 
-# Load HF wavefunction from previous optimization step, extract molecule, and activate it
-wfn_hf_vacuum = psi4.core.Wavefunction.from_file('{{ output_path }}/hf_wfn_vacuum')
-mol = wfn_hf_vacuum.molecule()
-activate(mol)
+# Coordinates come from B3LYP optimized geometry
+molecule {
+{{ charge | default('0') }} {{ multiplicity | default('1') }}
+{{ coordinates }}
+}
 
 # Set up the PCM solvent model
 set {
     basis 6-31G(d,p)
     geom_maxiter 1000
-    opt_coordinates cartesian
-    step_type nr
-    dynamic_level 1
-    scf_type pk
+    scf_type df
     pcm true
     pcm_scf_type total
 }
@@ -36,7 +34,7 @@ pcm = {
         RadiiSet = Bondi
         Type = GePol
         Scaling = True
-        Area = 0.4
+        Area = 0.2
         Mode = Atoms
         Atoms = {{ element_list | default('[]') }}
         Radii = {{ radius_list | default('[]') }}
@@ -44,20 +42,16 @@ pcm = {
 }
 
 print('\n================================================')
-print('   HF/6-31G(d,p) Geometry Optimization    ')
+print('   HF/6-31G(d,p) Single Point Energy in Implicit Water  ')
 print('   (Starting from HF vacuum optimized geometry)     ')
 print('================================================\n')
 
-energy_hf, wfn_hf = optimize('hf', engine='geometric', return_wfn=True)
-
-# Save HF optimized geometry
-hf_geom = wfn_hf.molecule()
-hf_geom.save_xyz_file('{{ output_path }}/hf_opt_implicit_water.xyz', True)
+energy_hf, wfn_hf = energy('hf', return_wfn=True)
 
 # Save HF wavefunction for potential reuse
 wfn_hf.to_file('{{ output_path }}/hf_wfn_implicit_water')
 
 print('\n================================================')
-print('  HF/6-31G(d,p) Optimization Complete              ')
+print('  HF/6-31G(d,p) Single Point Energy Complete              ')
 print(f'  Final Energy: {energy_hf:.10f} Eh')
 print('================================================\n')

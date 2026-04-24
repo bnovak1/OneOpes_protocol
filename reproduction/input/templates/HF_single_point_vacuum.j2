@@ -1,5 +1,5 @@
-# Psi4 HF Geometry Optimization
-# Step 2: HF/6-31G(d) optimization using B3LYP optimized geometry
+# Psi4 HF Single Point Energy Calculation in Vacuum
+# Step 2: HF/6-31G(d) single point energy using B3LYP optimized geometry
 
 import psi4
 import os
@@ -19,26 +19,20 @@ molecule {
 set {
     basis 6-31G(d,p)
     geom_maxiter 1000
-    opt_coordinates cartesian
-    step_type nr
-    dynamic_level 1
+    scf_type df
 }
 
 print('\n================================================')
-print('   HF/6-31G(d,p) Geometry Optimization    ')
+print('   HF/6-31G(d,p) Single Point Energy Calculation    ')
 print('   (Starting from B3LYP optimized geometry)     ')
 print('================================================\n')
 
-energy_hf, wfn_hf = optimize('hf', engine='geometric', return_wfn=True)
-
-# Save HF optimized geometry
-hf_geom = wfn_hf.molecule()
-hf_geom.save_xyz_file('{{ output_path }}/hf_opt_vacuum.xyz', True)
+energy_hf, wfn_hf = energy('hf', return_wfn=True)
 
 # Save HF wavefunction for potential reuse
 wfn_hf.to_file('{{ output_path }}/hf_wfn_vacuum')
 
 print('\n================================================')
-print('  HF/6-31G(d,p) Optimization Complete              ')
+print('  HF/6-31G(d,p) Single Point Energy Calculation Complete              ')
 print(f'  Final Energy: {energy_hf:.10f} Eh')
 print('================================================\n')
