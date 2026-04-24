@@ -153,6 +153,27 @@ rule align_b3lyps_to_gaussians:
             for structure_name in STRUCTURE_NAMES["guests"]
         ],
 
+# Compute the RMSD between the aligned B3LYP and Gaussian structures using obrms
+rule compute_rmsd_b3lyp_gaussian:
+    input:
+        aligned_1=rules.align_b3lyp_to_gaussian.output.aligned_1,
+        aligned_2=rules.align_b3lyp_to_gaussian.output.aligned_2,
+    output:
+        rmsd="../analysis/{structure_type}/{structure_name}/psi4_gaussian_alignment_rmsd.txt",
+    shell:
+        """
+        conda run -n OneOpes obrms {input.aligned_1} {input.aligned_2} > {output.rmsd}
+        """
+
+rule compute_rmsds_b3lyp_gaussians:
+    input:
+        [
+            rules.compute_rmsd_b3lyp_gaussian.output.rmsd.format(
+                structure_type=structure_type, structure_name=structure_name
+            )
+            for structure_type in STRUCTURE_NAMES
+            for structure_name in STRUCTURE_NAMES["guests"]
+        ],
 
 # Fill in the psi4 input file jinja2 template for HF optimization in vacuum
 rule fill_psi4_input_template_hf_vacuum:
