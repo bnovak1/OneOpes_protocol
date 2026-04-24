@@ -17,11 +17,8 @@ molecule {
 
 set {
     basis 6-31G(d,p)
-    freeze_all_dihedrals true
     geom_maxiter 1000
-    opt_coordinates cartesian
-    step_type nr
-    dynamic_level 1    
+    scf_type df
 }
 
 # Step 1: B3LYP/6-31G(d,p) Geometry Optimization
