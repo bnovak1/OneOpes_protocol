@@ -400,6 +400,28 @@ rule run_psi4s_hf_implicit_water_gaussian:
             for structure_name in STRUCTURE_NAMES[structure_type]
         ],
 
+# Extract Gaussian charges from topology files generated with Gaussian B3LYP optimized geometries.
+rule extract_gaussian_charges:
+    input:
+        script="scripts/gaussian_charges.py",
+        topology="../../OneOpes_input_files/CB8/CB8_{structure_name}/0/topol.top",
+    output:
+        charges="../analysis/guests/{structure_name}/Gaussian_charges.txt",
+    shell:
+        """
+        conda run -n OneOpes python {input.script} --topology {input.topology} --output {output.charges}
+        """
+
+
+rule extract_all_gaussian_charges:
+    input:
+        [
+            rules.extract_gaussian_charges.output.charges.format(
+                structure_name=structure_name
+            )
+            for structure_name in STRUCTURE_NAMES["guests"]
+        ],
+
 # Visualize the cavity.npz file generated for implicit solvent calculations
 # This is optional and for debugging purposes only.
 rule visualize_cavity:
