@@ -412,28 +412,3 @@ rule visualize_cavity:
         """
         conda run -n pyvista python {input.script} --cavity_file {input.cavity} --output_figure {output.fig}
         """
-
-
-# RESP fitting is now performed inside the HF single-point templates
-
-
-# # Step 1: Run Psi4 (generates RESP charges)
-# psi4 {{ structure_name }}.in
-# # Step 2: Create mol2 with RESP charges using antechamber
-# antechamber -i {{ structure_name }}_hf_opt.xyz -fi xyz \
-#             -o {{ structure_name }}.mol2 -fo mol2 \
-#             -c rc -cf {{ structure_name }}_resp.crg \
-#             -at gaff2 -rn MOL
-# # Step 3: Generate missing force field parameters
-# parmchk2 -i {{ structure_name }}.mol2 -f mol2 \
-#          -o {{ structure_name }}.frcmod
-# # Step 4: Create Amber topology
-# tleap -f - <<EOF
-# source leaprc.gaff2
-# loadamberparams {{ structure_name }}.frcmod
-# MOL = loadmol2 {{ structure_name }}.mol2
-# saveamberparm MOL {{ structure_name }}.prmtop {{ structure_name }}.inpcrd
-# quit
-# EOF
-# # Step 5: Convert to GROMACS format
-# acpype -p {{ structure_name }}.prmtop -x {{ structure_name }}.inpcrd
