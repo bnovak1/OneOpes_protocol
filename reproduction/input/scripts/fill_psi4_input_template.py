@@ -16,12 +16,15 @@ parser.add_argument("--structure_name", type=str, help="Structure name")
 parser.add_argument("--structure_type", type=str, help="Structure type")
 parser.add_argument("--xyz_file", type=str, default=None, help="XYZ file path")
 parser.add_argument("--output", type=str, help="Filled template file path")
+parser.add_argument("--output_path", type=str, default=None, help="Output path for files saved during psi4 calculations.")
 parser.add_argument(
     "--solvent", type=str, choices=["vacuum", "implicit_water"], help="Vacuum or implicit solvent?"
 )
 args = parser.parse_args()
 
-print(args.solvent)
+# Set default output path if not provided
+if args.output_path is None:
+    args.output_path=f"../output/psi4/{args.structure_type}/{args.structure_name}"
 
 # Create the output directory if it doesn't exist (Snakemake usually does this, but being safe)
 os.makedirs(os.path.dirname(args.output), exist_ok=True)
@@ -71,9 +74,8 @@ template = env.get_template(template_name)
 
 # Render the template
 rendered_content = template.render(
-    structure_name=args.structure_name,
     structure_path=f"structure_files/{args.structure_type}",
-    output_path=f"../output/psi4/{args.structure_type}/{args.structure_name}",
+    output_path=args.output_path,
     charge=json_data["CHARGE"],
     coordinates=coordinates,
     constrained_atoms=json_data["CONSTRAINED_ATOMS"],
