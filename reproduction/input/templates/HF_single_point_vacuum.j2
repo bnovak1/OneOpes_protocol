@@ -32,7 +32,67 @@ energy_hf, wfn_hf = energy('hf', return_wfn=True)
 # Save HF wavefunction for potential reuse
 wfn_hf.to_file('{{ output_path }}/hf_wfn_vacuum')
 
+# ============================================
+# RESP Fitting (Two-Stage)
+# ============================================
+
+mol = wfn_hf.molecule()
+
+# Base RESP options — let resp compute ESP via psi4.prop()
+base_options = {
+    'N_VDW_LAYERS': {{ n_vdw_layers | default('4') }},
+    'VDW_SCALE_FACTORS': [{{ vdw_scales | default('1.4, 1.6, 1.8, 2.0') }}],
+    'VDW_POINT_DENSITY': {{ vdw_density | default('1.0') }},
+    'RESP_B': 0.1,
+}
+
+# Stage 1
+options1 = base_options.copy()
+options1['RESP_A'] = {{ resp_a1 | default('0.0005') }}
+options1['constraint_group'] = {{ equiv_groups1 | default('[]') }}
+charges1 = resp.resp([mol], options1)
+
+# Stage 2
+options2 = base_options.copy()
+options2['RESP_A'] = {{ resp_a2 | default('0.001') }}
+constrained_atoms = {{ constrained_atoms | default('[]') }}
+constraint_charge = [[float(charges1[1][i]), [int(i)+1]] for i in constrained_atoms]
+options2['constraint_charge'] = constraint_charge
+options2['constraint_group'] = {{ equiv_groups2 | default('[]') }}
+charges2 = resp.resp([mol], options2)
+final_charges = charges2[1]
+
+# Save Stage 1 charges (for reference)
+with open('{{ output_path }}/resp_stage1_vacuum.txt', 'w') as f:
+    f.write('Stage 1 RESP Charges\n')
+    f.write('Atom    Charge\n')
+    for i, charge in enumerate(charges1[1], 1):
+        f.write(f'{i:4d}  {charge:10.6f}\n')
+
+# Save FINAL Stage 2 charges (readable)
+with open('{{ output_path }}/resp_charges_vacuum.txt', 'w') as f:
+    f.write('Final Stage 2 RESP Charges\n')
+    f.write('Atom    Charge\n')
+    f.write('================\n')
+    for i, charge in enumerate(final_charges, 1):
+        f.write(f'{i:4d}  {charge:10.6f}\n')
+    f.write('================\n')
+    f.write(f'Total Charge: {sum(final_charges):10.6f}\n')
+
+# AmberTools-compatible resp.crg (ONLY final Stage 2 charges)
+with open('{{ output_path }}/resp_vacuum.crg', 'w') as f:
+    for charge in final_charges:
+        f.write(f'{charge:.6f}\n')
+
+# Move the grid files that resp.resp() creates
+# resp writes: 1_{molname}_grid.dat and 1_{molname}_grid_esp.dat
+import glob
+for f in glob.glob('*_grid_esp.dat'):
+    os.rename(f, '{{ output_path }}/1_grid_esp_vacuum.dat')
+for f in glob.glob('*_grid.dat'):
+    os.rename(f, '{{ output_path }}/1_grid_vacuum.dat')
+
 print('\n================================================')
-print('  HF/6-31G(d,p) Single Point Energy Calculation Complete              ')
+print('  HF/6-31G(d,p) Single Point Energy + RESP Complete')
 print(f'  Final Energy: {energy_hf:.10f} Eh')
 print('================================================\n')
