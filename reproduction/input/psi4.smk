@@ -21,7 +21,7 @@ rule graph:
     output:
         graph="psi4_rulegraph.png",
     shell:
-        "snakemake -s {input.snakefile} --rulegraph run_psi4_resp | dot -Tpng > {output.graph}"
+        "snakemake -s {input.snakefile} --rulegraph run_psi4s_hf_implicit_water | dot -Tpng > {output.graph}"
 
 
 # Convert CIF files to PDB files.
@@ -80,7 +80,7 @@ rule fill_psi4_input_template_b3lyp:
         inp="psi4/{structure_type}/{structure_name}/b3lyp_opt.psi4",
     shell:
         """
-        conda run -n psi4_1.10 python {input.script} --template {input.template} --json {input.json} --structure_name {wildcards.structure_name} --structure_type {wildcards.structure_type} --xyz_file {input.xyz} --output {output.inp}
+        conda run -n psi4_1.7 python {input.script} --template {input.template} --json {input.json} --structure_name {wildcards.structure_name} --structure_type {wildcards.structure_type} --xyz_file {input.xyz} --output {output.inp}
         """
 
 
@@ -107,7 +107,7 @@ rule run_psi4_b3lyp:
     threads: THREADS_MAX
     shell:
         """
-        conda run -n psi4_1.10 psi4 {input.inp}
+        conda run -n psi4_1.7 psi4 {input.inp}
         mv timer.dat {params.output_dir}/timer_b3lyp.dat
         """
 
@@ -206,7 +206,12 @@ rule run_psi4_hf_vacuum:
     input:
         inp=rules.fill_psi4_input_template_hf_vacuum.output.inp,
     output:
-        hf_wfn="../output/psi4/{structure_type}/{structure_name}/hf_wfn_vacuum.npy",
+        # hf_wfn="../output/psi4/{structure_type}/{structure_name}/hf_wfn_vacuum.npy",
+        # charges1="../output/psi4/{structure_type}/{structure_name}/resp_stage1_vacuum.txt",
+        charges2="../output/psi4/{structure_type}/{structure_name}/resp_charges_vacuum.txt",
+        # charges_antechamber="../output/psi4/{structure_type}/{structure_name}/resp_vacuum.crg",
+        # grid="../output/psi4/{structure_type}/{structure_name}/1_grid_vacuum.dat",
+        # grid_esp="../output/psi4/{structure_type}/{structure_name}/1_grid_esp_vacuum.dat",
     params:
         output_dir="../output/psi4/{structure_type}/{structure_name}",
     threads: THREADS_MAX
@@ -214,13 +219,14 @@ rule run_psi4_hf_vacuum:
         """
         conda run -n psi4_1.7 psi4 {input.inp}
         mv timer.dat {params.output_dir}/timer_hf_vacuum.dat
+        mv results.out {params.output_dir}/results_resp_vacuum.out
         """
 
 
 rule run_psi4s_hf_vacuum:
     input:
         [
-            rules.run_psi4_hf_vacuum.output.hf_wfn.format(
+            rules.run_psi4_hf_vacuum.output.charges2.format(
                 structure_type=structure_type, structure_name=structure_name
             )
             for structure_type in STRUCTURE_NAMES
@@ -235,7 +241,6 @@ rule fill_psi4_input_template_hf_implicit_water:
         script="scripts/fill_psi4_input_template.py",
         json="psi4.json",
         b3lyp_xyz=rules.run_psi4_b3lyp.output.b3lyp_xyz,
-        wfn=rules.run_psi4_hf_vacuum.output.hf_wfn,
     output:
         inp="psi4/{structure_type}/{structure_name}/hf_single_point_implicit_water.psi4",
     shell:
@@ -260,7 +265,12 @@ rule run_psi4_hf_implicit_water:
     input:
         inp=rules.fill_psi4_input_template_hf_implicit_water.output.inp,
     output:
-        hf_wfn="../output/psi4/{structure_type}/{structure_name}/hf_wfn_implicit_water.npy",
+        # hf_wfn="../output/psi4/{structure_type}/{structure_name}/hf_wfn_implicit_water.npy",
+        # charges1="../output/psi4/{structure_type}/{structure_name}/resp_stage1_implicit_water.txt",
+        charges2="../output/psi4/{structure_type}/{structure_name}/resp_charges_implicit_water.txt",
+        # charges_antechamber="../output/psi4/{structure_type}/{structure_name}/resp_implicit_water.crg",
+        # grid="../output/psi4/{structure_type}/{structure_name}/1_grid_implicit_water.dat",
+        # grid_esp="../output/psi4/{structure_type}/{structure_name}/1_grid_esp_implicit_water.dat",
     params:
         output_dir="../output/psi4/{structure_type}/{structure_name}",
     threads: THREADS_MAX
@@ -268,19 +278,127 @@ rule run_psi4_hf_implicit_water:
         """
         conda run -n psi4_1.7 psi4 {input.inp}
         mv timer.dat {params.output_dir}/timer_hf_implicit_water.dat
+        mv results.out {params.output_dir}/results_resp_implicit_water.out
         """
 
 
 rule run_psi4s_hf_implicit_water:
     input:
         [
-            rules.run_psi4_hf_implicit_water.output.hf_wfn.format(
+            rules.run_psi4_hf_implicit_water.output.charges2.format(
                 structure_type=structure_type, structure_name=structure_name
             )
             for structure_type in STRUCTURE_NAMES
             for structure_name in STRUCTURE_NAMES[structure_type]
         ],
 
+# Fill in the psi4 input file jinja2 template for HF optimization in vacuum.
+# Use the Gaussian B3LYP optimized geometry as the starting point.
+rule fill_psi4_input_template_hf_vacuum_gaussian:
+    input:
+        template="templates/HF_single_point_vacuum.j2",
+        script="scripts/fill_psi4_input_template.py",
+        json="psi4.json",
+        b3lyp_xyz="../../gaussian_results/{structure_type}/{structure_name}_gaussian/final_optimized.xyz",
+    output:
+        inp="psi4/{structure_type}/{structure_name}/hf_single_point_vacuum_gaussian.psi4",
+    params:
+        output_dir="../output/psi4/{structure_type}/{structure_name}/gaussian_config",
+    shell:
+        """
+        conda run -n psi4_1.7 python {input.script} --template {input.template} --json {input.json} --structure_name {wildcards.structure_name} --structure_type {wildcards.structure_type} --xyz_file {input.b3lyp_xyz} --output {output.inp} --output_path {params.output_dir}
+        """
+
+rule fill_psi4_input_templates_hf_vacuum_gaussian:
+    input:
+        [
+            rules.fill_psi4_input_template_hf_vacuum_gaussian.output.inp.format(
+                structure_type=structure_type, structure_name=structure_name
+            )
+            for structure_type in STRUCTURE_NAMES
+            for structure_name in STRUCTURE_NAMES[structure_type]
+        ],
+
+# Run Psi4 HF optimization in vacuum starting from the Gaussian B3LYP optimized geometry.
+rule run_psi4_hf_vacuum_gaussian:
+    input:
+        inp=rules.fill_psi4_input_template_hf_vacuum_gaussian.output.inp,
+    output:
+        charges2="../output/psi4/{structure_type}/{structure_name}/gaussian_config/resp_charges_vacuum.txt",
+    params:
+        output_dir="../output/psi4/{structure_type}/{structure_name}/gaussian_config",
+    threads: THREADS_MAX
+    shell:
+        """
+        conda run -n psi4_1.7 psi4 {input.inp}
+        mv timer.dat {params.output_dir}/timer_hf_vacuum.dat
+        mv results.out {params.output_dir}/results_resp_vacuum.out
+        """
+
+rule run_psi4s_hf_vacuum_gaussian:
+    input:
+        [
+            rules.run_psi4_hf_vacuum_gaussian.output.charges2.format(
+                structure_type=structure_type, structure_name=structure_name
+            )
+            for structure_type in STRUCTURE_NAMES
+            for structure_name in STRUCTURE_NAMES[structure_type]
+        ],
+
+# Fill in the psi4 input file jinja2 template for HF optimization in implicit water.
+# Use the Gaussian B3LYP optimized geometry as the starting point.
+rule fill_psi4_input_template_hf_implicit_water_gaussian:
+    input:
+        template="templates/HF_single_point_implicit_water.j2",
+        script="scripts/fill_psi4_input_template.py",
+        json="psi4.json",
+        b3lyp_xyz="../../gaussian_results/{structure_type}/{structure_name}_gaussian/final_optimized.xyz",
+    output:
+        inp="psi4/{structure_type}/{structure_name}/hf_single_point_implicit_water_gaussian.psi4",
+    params:
+        output_dir="../output/psi4/{structure_type}/{structure_name}/gaussian_config",
+    shell:
+        """
+        conda run -n psi4_1.7 python {input.script} --template {input.template} --json {input.json} --structure_name {wildcards.structure_name} --structure_type {wildcards.structure_type} --xyz_file {input.b3lyp_xyz} --output {output.inp} --output_path {params.output_dir}
+        """
+
+
+rule fill_psi4_input_templates_hf_implicit_water_gaussian:
+    input:
+        [
+            rules.fill_psi4_input_template_hf_implicit_water_gaussian.output.inp.format(
+                structure_type=structure_type, structure_name=structure_name
+            )
+            for structure_type in STRUCTURE_NAMES
+            for structure_name in STRUCTURE_NAMES[structure_type]
+        ],
+
+# Run Psi4 HF optimization in implicit water starting from the Gaussian B3LYP optimized geometry.
+rule run_psi4_hf_implicit_water_gaussian:
+    input:
+        inp=rules.fill_psi4_input_template_hf_implicit_water_gaussian.output.inp,
+    output:
+        charges2="../output/psi4/{structure_type}/{structure_name}/gaussian_config/resp_charges_implicit_water.txt",
+    params:
+        output_dir="../output/psi4/{structure_type}/{structure_name}/gaussian_config",
+    threads: THREADS_MAX
+    shell:
+        """
+        conda run -n psi4_1.7 psi4 {input.inp}
+        mv timer.dat {params.output_dir}/timer_hf_implicit_water.dat
+        mv results.out {params.output_dir}/results_resp_implicit_water.out
+        """
+
+
+rule run_psi4s_hf_implicit_water_gaussian:
+    input:
+        [
+            rules.run_psi4_hf_implicit_water_gaussian.output.charges2.format(
+                structure_type=structure_type, structure_name=structure_name
+            )
+            for structure_type in STRUCTURE_NAMES
+            for structure_name in STRUCTURE_NAMES[structure_type]
+        ],
 
 # Visualize the cavity.npz file generated for implicit solvent calculations
 # This is optional and for debugging purposes only.
@@ -296,70 +414,7 @@ rule visualize_cavity:
         """
 
 
-# Fill in the psi4 input file jinja2 template for RESP fitting
-rule fill_psi4_input_template_resp:
-    input:
-        template="templates/RESP.j2",
-        script="scripts/fill_psi4_input_template.py",
-        json="psi4.json",
-        wfn="../output/psi4/{structure_type}/{structure_name}/hf_wfn_{solvent_type}.npy",
-    output:
-        inp="psi4/{structure_type}/{structure_name}/resp_{solvent_type}.psi4",
-    shell:
-        """
-        conda run -n psi4_1.7 python {input.script} --template {input.template} --json {input.json} --structure_name {wildcards.structure_name} --structure_type {wildcards.structure_type} --solvent {wildcards.solvent_type} --output {output.inp}
-        """
-
-
-rule fill_psi4_input_templates_resp:
-    input:
-        [
-            rules.fill_psi4_input_template_resp.output.inp.format(
-                structure_type=structure_type,
-                structure_name=structure_name,
-                solvent_type=solvent_type,
-            )
-            for structure_type in STRUCTURE_NAMES
-            for structure_name in STRUCTURE_NAMES[structure_type]
-            for solvent_type in ["vacuum", "implicit_water"]
-        ],
-
-
-# Run Psi4 RESP fitting
-rule run_psi4_resp:
-    input:
-        inp=rules.fill_psi4_input_template_resp.output.inp,
-    output:
-        charges1="../output/psi4/{structure_type}/{structure_name}/resp_stage1_{solvent_type}.txt",
-        charges2="../output/psi4/{structure_type}/{structure_name}/resp_charges_{solvent_type}.txt",
-        charges_antechamber="../output/psi4/{structure_type}/{structure_name}/resp_{solvent_type}.crg",
-        grid="../output/psi4/{structure_type}/{structure_name}/1_grid_{solvent_type}.dat",
-        grid_esp="../output/psi4/{structure_type}/{structure_name}/1_grid_esp_{solvent_type}.dat",
-    params:
-        output_dir="../output/psi4/{structure_type}/{structure_name}",
-    threads: THREADS_MAX
-    shell:
-        """
-        conda run -n psi4_1.7 psi4 {input.inp}
-        mv *grid.dat {output.grid}
-        mv *grid_esp.dat {output.grid_esp}
-        mv timer.dat {params.output_dir}/timer_resp_{wildcards.solvent_type}.dat
-        mv results.out {params.output_dir}/results_resp_{wildcards.solvent_type}.out
-        """
-
-
-rule run_psi4s_resp:
-    input:
-        [
-            rules.run_psi4_resp.output.charges_antechamber.format(
-                structure_type=structure_type,
-                structure_name=structure_name,
-                solvent_type=solvent_type,
-            )
-            for structure_type in STRUCTURE_NAMES
-            for structure_name in STRUCTURE_NAMES[structure_type]
-            for solvent_type in ["vacuum", "implicit_water"]
-        ],
+# RESP fitting is now performed inside the HF single-point templates
 
 
 # # Step 1: Run Psi4 (generates RESP charges)
